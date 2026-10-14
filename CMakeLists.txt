@@ -30,8 +30,8 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(LIGHTGLUE_MODELS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/models" CACHE PATH "Path to model weights directory")
 
 # Find dependencies
-set(LIBTORCH_DIR "${CMAKE_CURRENT_SOURCE_DIR}/external/libtorch")
-set(CMAKE_PREFIX_PATH ${LIBTORCH_DIR})
+set(Torch_DIR  "/opt/libtorch/share/cmake/Torch")
+set(TORCH_ROOT "/opt/libtorch")
 
 find_package(Torch REQUIRED)
 find_package(OpenCV REQUIRED)
