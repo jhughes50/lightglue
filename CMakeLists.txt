@@ -83,9 +83,10 @@ add_definitions(-DLIGHTGLUE_MODELS_DIR="${LIGHTGLUE_MODELS_DIR}")
 
 # Source files
 set(LIGHTGLUE_HEADERS
-        include/feature/ALIKED.hpp
-        include/feature/DKD.hpp
-        include/feature/SDDH.hpp
+        include/feature/aliked.hpp
+        include/feature/dkd.hpp
+        include/feature/sddh.hpp
+        include/feature/image_preprocessor.hpp
         include/feature/blocks.hpp
         include/feature/get_patches.hpp
         include/feature/input_padder.hpp
@@ -101,11 +102,12 @@ set(LIGHTGLUE_HEADERS
 )
 
 set(LIGHTGLUE_SOURCES
-        src/feature/ALIKED.cpp
-        src/feature/DKD.cpp
+        src/feature/aliked.cpp
+        src/feature/dkd.cpp
+        src/feature/image_preprocessor.cpp
         src/feature/input_padder.cpp
         src/feature/get_patches.cpp
-        src/feature/SDDH.cpp
+        src/feature/sddh.cpp
         src/feature/deform_conv2d.cpp
         src/feature/deform_conv2d_kernel.cu
         src/feature/get_patches_cuda.cu
@@ -170,6 +172,19 @@ endif()
 # Example application
 add_executable(${PROJECT_NAME} examples/main.cpp)
 target_link_libraries(${PROJECT_NAME} PRIVATE ${PROJECT_NAME}::lib)
+
+# Dump-utilities example (writes matches to YAML for offline analysis)
+add_executable(dump_matches examples/dump_matches.cpp)
+target_link_libraries(dump_matches PRIVATE ${PROJECT_NAME}::lib)
+set_target_properties(dump_matches PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY_DEBUG "${CMAKE_BINARY_DIR}/bin/debug"
+        RUNTIME_OUTPUT_DIRECTORY_RELEASE "${CMAKE_BINARY_DIR}/bin/release")
+
+add_executable(bench_aliked examples/bench_aliked.cpp)
+target_link_libraries(bench_aliked PRIVATE ${PROJECT_NAME}::lib)
+set_target_properties(bench_aliked PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY_DEBUG "${CMAKE_BINARY_DIR}/bin/debug"
+        RUNTIME_OUTPUT_DIRECTORY_RELEASE "${CMAKE_BINARY_DIR}/bin/release")
 
 # Output directories with debug/release suffixes
 set_target_properties(${PROJECT_NAME} ${PROJECT_NAME}_lib PROPERTIES

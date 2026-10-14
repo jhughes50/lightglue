@@ -5,3 +5,9 @@ logs
 build
 .idea
 cmake-*
+*.png
+*.PNG
+*.jpg
+*.JPG
+*.jpeg
+*.JPEG

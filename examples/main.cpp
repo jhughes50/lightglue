@@ -1,4 +1,4 @@
-#include "feature/ALIKED.hpp"
+#include "feature/aliked.hpp"
 #include "matcher/lightglue/matcher.hpp"
 #include <opencv2/opencv.hpp>
 #include <torch/torch.h>
@@ -17,7 +17,7 @@ cv::Mat load_image(const std::string& path) {
     // Convert BGR to RGB
     cv::Mat img_rgb;
     cv::cvtColor(img, img_rgb, cv::COLOR_BGR2RGB);
-    return img;
+    return img_rgb;
 }
 
 // Helper function to generate a colormap for pruning visualization

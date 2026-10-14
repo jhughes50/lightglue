@@ -2,6 +2,7 @@
 
 #include "blocks.hpp"
 #include "input_padder.hpp"
+#include "feature/image_preprocessor.hpp"
 #include <opencv2/opencv.hpp>
 #include <torch/torch.h>
 
@@ -30,7 +31,8 @@ public:
                     std::string_view device = "cuda",
                     int top_k = -1,
                     float scores_th = 0.2,
-                    int n_limit = 20000);
+                    int n_limit = 20000,
+                    int preprocess_resize = 1024);
 
     // Move semantics for tensor operations
     std::tuple<torch::Tensor, torch::Tensor>
@@ -42,7 +44,13 @@ public:
     torch::Dict<std::string, torch::Tensor>
     forward(const torch::Tensor& image) &;
 
-    torch::Dict<std::string, torch::Tensor> run(cv::Mat& img_rgb);
+    // run() extracts features for an OpenCV RGB image.
+    //   resize > 0 : longest-side resize target
+    //   resize == 0: native resolution
+    //   resize < 0 : the constructor's preprocess target (default 1024)
+    // Keypoints are always returned in original image pixel coordinates.
+    torch::Dict<std::string, torch::Tensor>
+    run(cv::Mat& img_rgb, int resize = -1);
 
 private:
     void init_layers(std::string_view model_name);
@@ -65,4 +73,5 @@ private:
 
     torch::Device device_;
     int dim_{};
+    int preprocess_resize_{1024};
 };

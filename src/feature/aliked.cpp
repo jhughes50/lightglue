@@ -1,7 +1,7 @@
-#include "feature/ALIKED.hpp"
+#include "feature/aliked.hpp"
 
-#include "feature/DKD.hpp"
-#include "feature/SDDH.hpp"
+#include "feature/dkd.hpp"
+#include "feature/sddh.hpp"
 
 #include <chrono>
 #include <filesystem>
@@ -13,9 +13,11 @@ ALIKED::ALIKED(std::string_view model_name,
                std::string_view device,
                int top_k,
                float scores_th,
-               int n_limit)
+               int n_limit,
+               int preprocess_resize)
     : device_(torch::Device(std::string(device))),
-      dim_(-1) {
+      dim_(-1),
+      preprocess_resize_(preprocess_resize) {
 
     // Initialize DKD and descriptor head
     dkd_ = std::make_shared<DKD>(2, top_k, scores_th, n_limit);
@@ -131,32 +133,53 @@ ALIKED::forward(const torch::Tensor& image) & {
 }
 
 torch::Dict<std::string, torch::Tensor>
-ALIKED::run(cv::Mat& img_rgb) {
-    cv::Mat float_img;
-    img_rgb.convertTo(float_img, CV_32F, 1.0 / 255.0);
+ALIKED::run(cv::Mat& img_rgb, int resize) {
+    feature::ImagePreprocessor preprocessor(resize >= 0 ? resize : preprocess_resize_);
+    cv::Mat proc = preprocessor.preprocess(img_rgb);
 
-    std::vector<cv::Mat> channels(3);
-    cv::split(float_img, channels);
-
-    auto options = torch::TensorOptions()
-                       .dtype(torch::kFloat32)
-                       .device(device_);
-
-    std::vector<torch::Tensor> tensor_channels;
-    tensor_channels.reserve(3);
-
-    for (const auto& channel : channels)
+    torch::Tensor img_tensor;
+    if (proc.isContinuous() && proc.type() == CV_8UC3 && proc.channels() == 3)
     {
-        auto host_tensor = torch::from_blob(
-            channel.data,
-            {channel.rows, channel.cols},
-            torch::TensorOptions().dtype(torch::kFloat32));
-        tensor_channels.push_back(std::move(host_tensor).to(device_));
+        // Fast path: a single uint8 H2D transfer, then convert/permute on the
+        // GPU (matches the Python reference pipeline: uint8 HWC -> float CHW / 255).
+        auto host = torch::from_blob(proc.data,
+                                     {proc.rows, proc.cols, 3},
+                                     torch::TensorOptions().dtype(torch::kUInt8));
+        img_tensor = host.to(device_)
+                          .to(torch::kFloat32)
+                          .div(255.0)
+                          .permute({2, 0, 1})
+                          .unsqueeze(0)
+                          .contiguous();
     }
+    else
+    {
+        cv::Mat float_img;
+        proc.convertTo(float_img, CV_32F, 1.0 / 255.0);
 
-    auto img_tensor = torch::stack(std::move(tensor_channels), 0)
+        std::vector<cv::Mat> channels(3);
+        cv::split(float_img, channels);
+
+        auto options = torch::TensorOptions()
+                           .dtype(torch::kFloat32)
+                           .device(device_);
+
+        std::vector<torch::Tensor> tensor_channels;
+        tensor_channels.reserve(3);
+
+        for (const auto& channel : channels)
+        {
+            auto host_tensor = torch::from_blob(
+                channel.data,
+                {channel.rows, channel.cols},
+                torch::TensorOptions().dtype(torch::kFloat32));
+            tensor_channels.push_back(std::move(host_tensor).to(device_));
+        }
+
+        img_tensor = torch::stack(std::move(tensor_channels), 0)
                           .unsqueeze(0)
                           .to(device_);
+    }
 
     // Forward pass with move semantics
     auto pred = std::move(*this).forward(std::move(img_tensor));
@@ -164,10 +187,12 @@ ALIKED::run(cv::Mat& img_rgb) {
     // Convert keypoints from normalized coordinates to image coordinates
     auto kpts = pred.at("keypoints");
     TORCH_CHECK(pred.erase("keypoints"), "Failed to remove 'keypoints' from output dict");
-    const auto h = static_cast<float>(float_img.rows);
-    const auto w = static_cast<float>(float_img.cols);
+    const auto h = static_cast<float>(proc.rows);
+    const auto w = static_cast<float>(proc.cols);
     const auto wh = torch::tensor({w - 1.0f, h - 1.0f}, kpts.options());
     kpts = wh * (kpts + 1) / 2;
+    // Rescale back to the original image coordinates when a resize was applied.
+    kpts = preprocessor.postprocess(kpts);
     auto [iter, success] = pred.insert("keypoints", kpts);
     TORCH_CHECK(success, "Failed to insert 'keypoints' into output dict");
     return pred;

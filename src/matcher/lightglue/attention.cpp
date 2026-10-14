@@ -183,15 +183,12 @@ namespace matcher {
     }
 
     Attention::Attention(bool allow_flash) {
-        // TODO: fix this
-        // enable_flash_ = allow_flash && FLASH_AVAILABLE;
-        // has_sdp_ = torch::cuda::is_available() &&
-        //           torch::cuda::is_available(); // &&
-        // torch::().major >= 8;
-        enable_flash_ = false;
-        // if (enable_flash_) {
-        //     torch::cuda::set_device(torch::cuda::current_device());
-        // }
+        // scaled_dot_product_attention is part of LibTorch >= 2.0; its flash /
+        // mem-efficient CUDA kernels engage automatically on supported
+        // architectures and dtypes (fp16 here, same as the Python reference).
+        const bool cuda_available = torch::cuda::is_available();
+        enable_flash_ = allow_flash && cuda_available;
+        has_sdp_ = enable_flash_;
     }
 
     torch::Tensor Attention::forward(
