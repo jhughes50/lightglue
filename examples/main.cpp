@@ -17,7 +17,7 @@ cv::Mat load_image(const std::string& path) {
     // Convert BGR to RGB
     cv::Mat img_rgb;
     cv::cvtColor(img, img_rgb, cv::COLOR_BGR2RGB);
-    return img_rgb;
+    return img;
 }
 
 // Helper function to generate a colormap for pruning visualization
@@ -119,8 +119,6 @@ void draw_matches_and_prune(cv::Mat& img1, cv::Mat& img2,
     cv::putText(output, text, cv::Point(10, 30), cv::FONT_HERSHEY_SIMPLEX, 1.0, cv::Scalar(255, 255, 255), 2);
 
     // Show and save the result
-    cv::imshow("Matches and Pruning", output);
-    cv::waitKey(0);
     cv::imwrite("matches_and_pruning.png", output);
 }
 
@@ -138,7 +136,7 @@ int main(int argc, char* argv[]) {
         std::cout << "Using device: " << (device.is_cuda() ? "CUDA" : "CPU") << std::endl;
 
         // Initialize models
-        auto extractor = std::make_shared<ALIKED>("aliked-n16", device.str());
+        auto extractor = std::make_shared<ALIKED>("aliked-n16rot", device.str());
         auto matcher = std::make_shared<matcher::LightGlue>();
 
         // Move matcher to device
